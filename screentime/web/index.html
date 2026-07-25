@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Screen time</title>
+<style>
+  :root {
+    --bg: #fbfbfa;
+    --surface: #ffffff;
+    --text: #15151a;
+    --muted: #8a8a92;
+    --faint: #b4b4ba;
+    --line: #ebebe7;
+    --track: #f0f0ec;
+    --accent: #1f6f5c;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f11;
+      --surface: #17171a;
+      --text: #f1f1f0;
+      --muted: #8d8d96;
+      --faint: #61616a;
+      --line: #24242a;
+      --track: #22222a;
+      --accent: #55c39d;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); }
+  body {
+    font-family: -apple-system, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 700px; margin: 0 auto; padding: 56px 24px 72px; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+  .label { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+  nav { display: flex; align-items: center; gap: 4px; }
+  button {
+    font: inherit; color: var(--muted); background: none; border: 1px solid transparent;
+    border-radius: 8px; padding: 4px 10px; cursor: pointer; transition: .12s;
+  }
+  button:hover:not(:disabled) { color: var(--text); background: var(--track); }
+  button:disabled { opacity: .3; cursor: default; }
+  #date { font-size: 13px; color: var(--muted); min-width: 108px; text-align: center; }
+
+  .hero { margin: 22px 0 6px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .total { font-size: 46px; font-weight: 300; letter-spacing: -.02em; line-height: 1; }
+  .delta { font-size: 13px; color: var(--muted); }
+  .sub { font-size: 13px; color: var(--muted); margin-bottom: 34px; }
+
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 38px; }
+  .day { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer;
+         background: none; border: 0; padding: 6px 0 0; border-radius: 10px; }
+  .day:hover { background: var(--track); }
+  .day .col { width: 100%; height: 64px; display: flex; align-items: flex-end; }
+  .day .fill { width: 100%; background: var(--track); border-radius: 4px; min-height: 3px; transition: .2s; }
+  .day.on .fill { background: var(--accent); }
+  .day .d { font-size: 11px; color: var(--faint); letter-spacing: .03em; }
+  .day.on .d { color: var(--text); }
+
+  section { margin-bottom: 38px; }
+  h2 { font-size: 13px; font-weight: 500; color: var(--faint); letter-spacing: .04em;
+       text-transform: uppercase; margin: 0 0 16px; }
+
+  .hours { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; align-items: end; height: 52px; }
+  .hours i { display: block; background: var(--track); border-radius: 3px; min-height: 3px; }
+  .hours i.hot { background: var(--accent); opacity: .85; }
+  .ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--faint); margin-top: 8px; }
+
+  .app { border-top: 1px solid var(--line); }
+  .app:last-child { border-bottom: 1px solid var(--line); }
+  .row { display: flex; align-items: center; gap: 12px; padding: 13px 2px; cursor: default; }
+  .app.has-detail .row { cursor: pointer; }
+  .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .time { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+  .bar { width: 96px; height: 4px; background: var(--track); border-radius: 3px; overflow: hidden; flex: none; }
+  .bar span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+  .chev { width: 12px; color: var(--faint); font-size: 11px; flex: none; text-align: right;
+          transition: transform .15s; }
+  .app.open .chev { transform: rotate(90deg); }
+  .details { display: none; padding: 0 2px 14px 2px; }
+  .app.open .details { display: block; }
+  .detail { display: flex; align-items: center; gap: 12px; padding: 5px 0; font-size: 13.5px; color: var(--muted); }
+  .detail .name { color: var(--text); opacity: .82; }
+  .detail .bar { width: 64px; height: 3px; }
+  .detail .bar span { background: var(--accent); opacity: .55; }
+
+  .empty { color: var(--muted); font-size: 14px; padding: 28px 0; text-align: center;
+           border: 1px dashed var(--line); border-radius: var(--radius); }
+  footer { font-size: 12px; color: var(--faint); display: flex; justify-content: space-between;
+           gap: 12px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block;
+         margin-right: 6px; vertical-align: 1px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="label">Screen time</div>
+    <nav>
+      <button id="prev" title="Previous day">&larr;</button>
+      <div id="date">—</div>
+      <button id="next" title="Next day">&rarr;</button>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div class="total" id="total">—</div>
+    <div class="delta" id="delta"></div>
+  </div>
+  <div class="sub" id="sub"></div>
+
+  <div class="week" id="week"></div>
+
+  <section>
+    <h2>Through the day</h2>
+    <div class="hours" id="hours"></div>
+    <div class="ticks"><span>12 am</span><span>6 am</span><span>12 pm</span><span>6 pm</span><span>11 pm</span></div>
+  </section>
+
+  <section>
+    <h2>Apps and websites</h2>
+    <div id="apps"></div>
+  </section>
+
+  <footer>
+    <span><span class="dot"></span><span id="status">connecting</span></span>
+    <span>Stored on this laptop only</span>
+  </footer>
+</div>
+
+<script>
+// All date maths stays in local time — the tracker records local days.
+const pad = (n) => String(n).padStart(2, "0");
+const iso = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const parseDay = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const shift = (s, n) => { const d = parseDay(s); d.setDate(d.getDate() + n); return iso(d); };
+
+let day = iso(new Date());
+let today = day;
+const open = new Set();
+
+const fmt = (s) => {
+  s = Math.round(s || 0);
+  if (s < 60) return s + "s";
+  const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  if (!h) return m + "m";
+  return m ? h + "h " + m + "m" : h + "h";
+};
+const pretty = (s) => {
+  if (s === today) return "Today";
+  if (s === shift(today, -1)) return "Yesterday";
+  return parseDay(s).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+};
+
+async function load() {
+  let data;
+  try {
+    data = await (await fetch("/api/summary?day=" + day)).json();
+  } catch (e) {
+    document.getElementById("status").textContent = "tracker not running";
+    return;
+  }
+  today = data.today;
+  render(data);
+  try {
+    const st = await (await fetch("/api/status")).json();
+    document.getElementById("status").textContent = st.status;
+  } catch (e) {}
+}
+
+function render(d) {
+  document.getElementById("date").textContent = pretty(d.day);
+  document.getElementById("next").disabled = d.day >= today;
+  document.getElementById("total").textContent = d.total ? fmt(d.total) : "0m";
+
+  const week = d.week || [];
+  const past = week.slice(0, -1).filter(w => w.seconds > 0);
+  const avg = past.length ? past.reduce((a, w) => a + w.seconds, 0) / past.length : 0;
+  const delta = document.getElementById("delta");
+  if (avg && d.total) {
+    const diff = Math.round((d.total - avg) / 60);
+    delta.textContent = diff === 0 ? "same as your average"
+      : (diff > 0 ? "+" : "−") + fmt(Math.abs(diff) * 60) + " vs 7-day average";
+  } else delta.textContent = "";
+
+  const span = d.span;
+  const bits = [];
+  if (span) bits.push(span.first + " – " + span.last);
+  if (d.apps.length) bits.push(d.apps.length + (d.apps.length === 1 ? " app" : " apps"));
+  document.getElementById("sub").textContent = bits.join("  ·  ");
+
+  const peak = Math.max(1, ...week.map(w => w.seconds));
+  document.getElementById("week").innerHTML = week.map(w => `
+    <button class="day ${w.day === d.day ? "on" : ""}" data-day="${w.day}" title="${fmt(w.seconds)}">
+      <span class="col"><span class="fill" style="height:${Math.max(3, (w.seconds / peak) * 64)}px"></span></span>
+      <span class="d">${parseDay(w.day).toLocaleDateString(undefined, { weekday: "narrow" })}</span>
+    </button>`).join("");
+
+  const hpeak = Math.max(1, ...d.hours);
+  document.getElementById("hours").innerHTML = d.hours.map((s, i) =>
+    `<i class="${s > 0 ? "hot" : ""}" style="height:${Math.max(3, (s / hpeak) * 52)}px" title="${i}:00 — ${fmt(s)}"></i>`
+  ).join("");
+
+  const top = d.apps.length ? d.apps[0].seconds : 1;
+  const box = document.getElementById("apps");
+  if (!d.apps.length) {
+    box.innerHTML = `<div class="empty">Nothing tracked yet for this day.</div>`;
+    return;
+  }
+  box.innerHTML = d.apps.map(a => {
+    const dtop = a.details.length ? a.details[0].seconds : 1;
+    return `
+    <div class="app ${a.details.length ? "has-detail" : ""} ${open.has(a.exe) ? "open" : ""}" data-exe="${a.exe}">
+      <div class="row">
+        <span class="name">${esc(a.name)}</span>
+        <span class="bar"><span style="width:${(a.seconds / top) * 100}%"></span></span>
+        <span class="time">${fmt(a.seconds)}</span>
+        <span class="chev">${a.details.length ? "›" : ""}</span>
+      </div>
+      <div class="details">${a.details.map(x => `
+        <div class="detail">
+          <span class="name">${esc(x.label)}</span>
+          <span class="bar"><span style="width:${(x.seconds / dtop) * 100}%"></span></span>
+          <span class="time">${fmt(x.seconds)}</span>
+          <span class="chev"></span>
+        </div>`).join("")}</div>
+    </div>`;
+  }).join("");
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+document.addEventListener("click", (e) => {
+  const dayBtn = e.target.closest(".day");
+  if (dayBtn) { day = dayBtn.dataset.day; load(); return; }
+  const app = e.target.closest(".app.has-detail");
+  if (app) {
+    const exe = app.dataset.exe;
+    open.has(exe) ? open.delete(exe) : open.add(exe);
+    app.classList.toggle("open");
+  }
+});
+document.getElementById("prev").onclick = () => { day = shift(day, -1); load(); };
+document.getElementById("next").onclick = () => { if (day < today) { day = shift(day, 1); load(); } };
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") document.getElementById("prev").click();
+  if (e.key === "ArrowRight") document.getElementById("next").click();
+});
+
+load();
+setInterval(() => { if (day === today) load(); }, 20000);
+</script>
+</body>
+</html>
